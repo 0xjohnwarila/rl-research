@@ -86,7 +86,7 @@ import pickle
 
 
 ray.init(num_cpus=4, include_webui=False, ignore_reinit_error=True,
-        redis_max_memory=10000000, object_store_memory=78643200)
+        redis_max_memory=10000000, object_store_memory=1008643200)
 
 
 # **EXERCISE:** The function below is slow. Turn it into a remote function using the `@ray.remote` decorator. 
@@ -440,7 +440,8 @@ start_time = time.time()
 result_ids = [f.remote(i) for i in range(6)]
 # Get one batch of tasks. Instead of waiting for a fixed subset of tasks, we
 # should instead use the first 3 tasks that finish.
-initial_results = ray.get(result_ids[:3])
+ready_ids, remaining_ids = ray.wait(result_ids, num_returns=3)
+initial_results = ray.get(ready_ids)
 
 end_time = time.time()
 duration = end_time - start_time
@@ -452,11 +453,11 @@ duration = end_time - start_time
 
 
 # Wait for the remaining tasks to complete.
-remaining_results = ray.get(result_ids[3:])
+ready_ids2, _ = ray.wait(remaining_ids, num_returns=3)
+remaining_results = ray.get(ready_ids2)
 
 
 # **VERIFY:** Run some checks to verify that the changes you made to the code were correct. Some of the checks should fail when you initially run the cells. After completing the exercises, the checks should pass.
-
 
 assert len(initial_results) == 3
 assert len(remaining_results) == 3
@@ -577,7 +578,9 @@ def use_weights(weights, i):
 time.sleep(2.0)
 start_time = time.time()
 
-results = ray.get([use_weights.remote(neural_net_weights, i)
+weight_id = ray.put(neural_net_weights)
+
+results = ray.get([use_weights.remote(weight_id, i)
                    for i in range(20)])
 
 end_time = time.time()
